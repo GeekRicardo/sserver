@@ -10,8 +10,18 @@ if __name__ == "__main__":
     loader = AppLoader(factory=partial(create_app, args.prefix, args.path))
     app = loader.load()
     ssl = {
-        "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
-        "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
+        "cert": os.environ.get(
+            "CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"
+        ),
+        "key": os.environ.get(
+            "KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"
+        ),
     }
-    app.prepare(host=args.host, port=args.port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl)
+    use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
+    app.prepare(
+        host=args.host,
+        port=args.port,
+        dev=os.environ.get("DEBUG", "False").lower() == "true",
+        ssl=ssl if use_ssl else None,
+    )
     Sanic.serve(primary=app, app_loader=loader)

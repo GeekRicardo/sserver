@@ -77,35 +77,15 @@ def create_bp(prefix: str = "/"):
         if not os.path.exists(path):
             return text("file not exists!", status=404)
         elif os.path.isdir(path):
-            return html(get_file_list(request.app.config.static_path, path, show_time, direct_download))
+            return html(
+                get_file_list(
+                    request.app.config.static_path, path, show_time, direct_download
+                
+            )
 
-        # 断点续传
-        start, end = 0, None
-        if "Range" in request.headers:
-            start_end = request.headers["Range"].strip().split("=")[-1]
-            start, end = map(str.strip, start_end.split("-"))
-            start = int(start)
-            end = int(end) if end else None
+        headers = {"Content-Length": str(os.stat(path).st_size)}
 
-        file_stat = os.stat(path)
-        size = file_stat.st_size
-        if end is None:
-            end = size - 1
-        else:
-            end = min(size - 1, end)
-
-        length = end - start + 1
-        content_range = f"bytes {start}-{end}/{size}"
-
-        # headers = {
-        #     "Content-Length": f"{length}",
-        #     "content-disposition": f'attachment; filename="{filename}"',
-        #     "Content-Range": content_range,
-        #     "Accept-Ranges": "bytes",
-        #     "connection": "keep-alive",
-        # }
-
-        return await file_stream(path)
+        return await file_stream(path, chunk_size=4096, headers=headers)
 
     def get_file_list(static_path, path, show_time: bool = False, dd: str = ""):
         sub_path = [it for it in path.replace(static_path, "").rsplit("/") if it]
@@ -123,7 +103,7 @@ def create_bp(prefix: str = "/"):
                         os.path.basename(it),
                         "/" if os.path.isdir(it) else "",
                         TimeStampToTime(os.path.getmtime(it)) if show_time != 0 else "",
-                        f"?dd={dd}&show_time={show_time}" if dd is not None or show_time is not None else "",
+                        f"?dd={dd}&show_time={show_time}" if dd or show_time else "",
                     )
                     for it in glob(path + "/*")
                 ],
@@ -159,8 +139,14 @@ if __name__ == "__main__":
     loader = AppLoader(factory=partial(create_app, args.prefix, args.path))
     app = loader.load()
     ssl = {
-        "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
-        "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
+        "cert": os.environ.get(
+            "CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"
+        ),
+        "key": os.environ.get(
+            "KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"
+        ),
     }
-    app.prepare(port=3001, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl)
+    app.prepare(
+        port=3001, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl
+    )
     Sanic.serve(primary=app, app_loader=loader)
