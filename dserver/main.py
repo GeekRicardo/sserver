@@ -80,7 +80,7 @@ def create_bp(prefix: str = "/"):
             return html(
                 get_file_list(
                     request.app.config.static_path, path, show_time, direct_download
-                
+                )
             )
 
         headers = {"Content-Length": str(os.stat(path).st_size)}
