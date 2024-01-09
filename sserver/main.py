@@ -84,7 +84,7 @@ def create_bp(prefix: str = "/"):
         model = None
         if mode == "file":
             model = await FileRecord.get(id)
-            path = os.path.join(request.app.config.UPLOAD_DIR, model.filename)
+            path = os.path.join(request.app.config.UPLOAD_DIR, model.id)
             if os.path.exists(path):
                 os.remove(path)
         elif mode == "msg":
@@ -117,7 +117,7 @@ def create_bp(prefix: str = "/"):
             basename = os.path.basename(f)
             if not await FileRecord.get(basename) or not await FileRecord.get_by_filename(basename):
                 newf.append(await FileRecord(basename).save())
-                os.rename(f, newf[-1].id)
+                os.rename(f, os.path.join(os.path.dirname(f), newf[-1].id))
         return json({"code": 0, "msg": "success", "data": [it.filename for it in newf]})
 
     return bp
