@@ -5,9 +5,10 @@ with open("requirements.txt") as f:
 
 setup(
     name="dserver",
-    version="0.1.1",
+    version="0.1.3",
     packages=find_packages(),
     author="Geek Ricardo",
     author_email="GeekRicardozzZ@gmail.com",
     install_requires=requirements,
+    package_data={"sserver": ["templates/*", "upload/favicon.ico"]},
 )

@@ -127,6 +127,7 @@ def create_app(prefix: str = "/"):
     bp = create_bp(prefix)
     app = Sanic(f"sserver")
     app.config.UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "upload"))
+    app.config.REQUEST_MAX_SIZE = int(os.environ.get("REQUEST_MAX_SIZE", 10 * 1024 * 1024 * 1024))
     app.blueprint(bp)
 
     @app.listener("before_server_start")

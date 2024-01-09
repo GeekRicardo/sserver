@@ -7,7 +7,10 @@ venv/
 .venv
 .vscode/
 ssl/
-upload/
-!upload/favicon.ico
+sserver/upload/
+!sserver/upload/favicon.ico
 file_records.db
 !templates
+dist/
+build/
+*.egg-info
