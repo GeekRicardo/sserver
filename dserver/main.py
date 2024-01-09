@@ -139,8 +139,11 @@ def main():
         "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
     }
     use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
+    host = os.environ.get("HOST", "0.0.0.0") or args.host
     port = int(os.environ.get("PORT", "0")) or args.port
-    app.prepare(port=port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl if use_ssl else None)
+    app.prepare(
+        host=host, port=port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl if use_ssl else None
+    )
     Sanic.serve(primary=app, app_loader=loader)
 
 
