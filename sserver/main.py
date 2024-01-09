@@ -115,7 +115,7 @@ def create_bp(prefix: str = "/"):
             if not os.path.isfile(f):
                 continue
             basename = os.path.basename(f)
-            if not await FileRecord.get(basename) or not await FileRecord.get_by_filename(basename):
+            if not await FileRecord.get(basename) and not await FileRecord.get_by_filename(basename):
                 newf.append(await FileRecord(basename).save())
                 os.rename(f, os.path.join(os.path.dirname(f), newf[-1].id))
         return json({"code": 0, "msg": "success", "data": [it.filename for it in newf]})
