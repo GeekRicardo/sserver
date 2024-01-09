@@ -2,6 +2,7 @@ from functools import partial
 from glob import glob
 import os
 import argparse
+import shutil
 from sanic import Blueprint, Sanic, Request, response, app
 from sanic.response import json, html, file as resp_file
 from sanic.worker.loader import AppLoader
@@ -126,7 +127,7 @@ def create_bp(prefix: str = "/"):
 def create_app(prefix: str = "/"):
     bp = create_bp(prefix)
     app = Sanic(f"sserver")
-    app.config.UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "upload"))
+    app.config.UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.getcwd(), "upload"))
     app.config.REQUEST_MAX_SIZE = int(os.environ.get("REQUEST_MAX_SIZE", 10 * 1024 * 1024 * 1024))
     app.blueprint(bp)
 
@@ -138,6 +139,11 @@ def create_app(prefix: str = "/"):
             os.makedirs(app.config.UPLOAD_DIR)
         if not await FileRecord.get("favicon.ico"):
             await FileRecord("favicon.ico", "favicon.ico", True).save()
+        if not os.path.exists(app.config.UPLOAD_DIR + "/favicon.ico"):
+            shutil.copy(
+                os.path.join(os.path.dirname(__file__), "upload", "favicon.ico"),
+                os.path.join(app.config.UPLOAD_DIR, "favicon.ico"),
+            )
 
     return app
 
@@ -150,8 +156,7 @@ def parseargs():
     return parser.parse_args()
 
 
-# app = AppLoader.create(args.prefix)
-if __name__ == "__main__":
+def main():
     args = parseargs()
     loader = AppLoader(factory=partial(create_app, args.prefix))
     app = loader.load()
@@ -159,5 +164,11 @@ if __name__ == "__main__":
         "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
         "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
     }
-    app.prepare(port=3001, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl)
+    use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
+    port = int(os.environ.get("PORT", "0")) or args.port
+    app.prepare(port=port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl if use_ssl else None)
     Sanic.serve(primary=app, app_loader=loader)
+
+
+if __name__ == "__main__":
+    main()

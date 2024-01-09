@@ -77,11 +77,7 @@ def create_bp(prefix: str = "/"):
         if not os.path.exists(path):
             return text("file not exists!", status=404)
         elif os.path.isdir(path):
-            return html(
-                get_file_list(
-                    request.app.config.static_path, path, show_time, direct_download
-                )
-            )
+            return html(get_file_list(request.app.config.static_path, path, show_time, direct_download))
 
         headers = {"Content-Length": str(os.stat(path).st_size)}
 
@@ -134,19 +130,19 @@ def parseargs():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main():
     args = parseargs()
     loader = AppLoader(factory=partial(create_app, args.prefix, args.path))
     app = loader.load()
     ssl = {
-        "cert": os.environ.get(
-            "CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"
-        ),
-        "key": os.environ.get(
-            "KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"
-        ),
+        "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
+        "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
     }
-    app.prepare(
-        port=3001, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl
-    )
+    use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
+    port = int(os.environ.get("PORT", "0")) or args.port
+    app.prepare(port=port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl if use_ssl else None)
     Sanic.serve(primary=app, app_loader=loader)
+
+
+if __name__ == "__main__":
+    main()
