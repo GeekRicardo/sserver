@@ -11,7 +11,7 @@ def read_version():
 
 setup(
     name="dserver",
-    version=read_version(),
+    version="0.1.10",
     packages=find_packages(),
     author="Geek Ricardo",
     author_email="GeekRicardozzZ@gmail.com",
