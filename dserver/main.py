@@ -1,18 +1,15 @@
-from email.utils import formatdate
 from functools import partial
 from glob import glob
 import hashlib
+from mimetypes import guess_type
 import os
 import argparse
-import re
-from urllib.parse import quote
-from sanic import Blueprint, Sanic, Request, app
-from sanic.response import json, html, file as resp_file, text, file_stream
+from sanic import Blueprint, Sanic, Request
+from sanic.response import html, text, file_stream
 from sanic.worker.loader import AppLoader
+from urllib.parse import unquote
 
-from mimetypes import guess_type
-
-from dserver.utils import TimeStampToTime, file_iterator
+from utils import TimeStampToTime#, file_stream
 
 
 def create_bp(prefix: str = "/"):
@@ -70,21 +67,28 @@ def create_bp(prefix: str = "/"):
     @bp.get("/<filename:path>")
     async def get_file(request: Request, filename: str):
         # filename = request.args.get("filename")
-        show_time = request.args.get("show_time")
-        direct_download = request.args.get("dd", "0")
+        show_time = bool(int(request.args.get("st", "0")))
+        direct_download = bool(int(request.args.get("dd", "0")))
 
-        path = os.path.join(request.app.config.static_path, filename)
+        path = os.path.join(request.app.config.static_path, unquote(filename))
         if not os.path.exists(path):
             return text("file not exists!", status=404)
         elif os.path.isdir(path):
             return html(get_file_list(request.app.config.static_path, path, show_time, direct_download))
 
-        headers = {"Content-Length": str(os.stat(path).st_size)}
+        content_type, encoding = guess_type(path)
+        if direct_download:
+            content_type = "application/octet-stream"
+        # if not content_type:
+        #     content_type = "text/html; charset=UTF-8"
+
+        headers = {"Content-Length": str(os.stat(path).st_size), "Content-Type": content_type}
 
         return await file_stream(path, chunk_size=4096, headers=headers)
 
-    def get_file_list(static_path, path, show_time: bool = False, dd: str = ""):
+    def get_file_list(static_path, path, st: bool = False, dd: bool = False):
         sub_path = [it for it in path.replace(static_path, "").rsplit("/") if it]
+        query_args = "&".join([_ for _ in [f"dd={int(dd)}" if dd else "", f"st={int(st)}" if st else ""] if _])
         html_str = """<html><head><style>span:hover{{background-color:#f2f2f2}}li{{weight:70%;}}</style></head><body><h2>{0}</h2><ul>{1}</ul></body></html>""".format(
             "→".join(
                 [f'<a href="{prefix}"><span> / </span></a>']
@@ -98,10 +102,10 @@ def create_bp(prefix: str = "/"):
                     "<li><a href='{0}{1}{3}'>{0}{1}</a><span style='margin=20px'>{2}</span></li>".format(
                         os.path.basename(it),
                         "/" if os.path.isdir(it) else "",
-                        TimeStampToTime(os.path.getmtime(it)) if show_time != 0 else "",
-                        f"?dd={dd}&show_time={show_time}" if dd or show_time else "",
+                        TimeStampToTime(os.path.getmtime(it)) if st != 0 else "",
+                        f"?{query_args}" if query_args else "",
                     )
-                    for it in glob(path + "/*")
+                    for it in sorted(glob(path + "/*"), key=lambda x: x.lower())
                 ],
             ),
         )
