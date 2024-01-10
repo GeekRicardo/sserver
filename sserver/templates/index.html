@@ -6,8 +6,8 @@
     <title>sServer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css">
+    <!-- <link rel="stylesheet" href="/01HKRR94VNQMZWSKD2ESGXQK55" type="text/css"> -->
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/dropzone/5.9.2/dropzone.min.css">
-    <!-- TODO iconf -->
     <link rel="shortcut icon" href="/favicon.ico">
 </head>
 
@@ -21,6 +21,7 @@
                         <th>File Name</th>
                         <th>Created At</th>
                         <th>Size</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="files">
@@ -31,7 +32,9 @@
                         <td>{{ file.created_at|datetime_format }}</td>
                         <td>{{ file.size|format_size }}</td>
                         <td>
-                            <bottom><a href="{{ url_for('app.delete', mode='file', id=file.id) }}">删除</a></bottom>
+                            <a href="{{ url_for('app.delete', mode='file', id=file.id) }}">
+                                <bottom class="btn btn-danger">删除</bottom>
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -56,17 +59,21 @@
                     <tr>
                         <th>Message</th>
                         <th>Created At</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="msg-list">
                     {% for msg in msgs %}
                     <tr>
-                        <td>
+                        <td class="msg">
                             <pre>{{ msg.content }}</pre>
                         </td>
                         <td>{{ msg.created_at|datetime_format }}</td>
                         <td>
-                            <bottom><a href="/delete/msg/{{ msg.id }}">删除</a></bottom>
+                            <bottom class="copy-btn btn btn-success">复制</bottom>
+                            <a href="/delete/msg/{{ msg.id }}">
+                                <bottom class="btn btn-danger">删除</bottom>
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -79,6 +86,7 @@
 
     </div>
 
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/dropzone/5.9.2/min/dropzone.min.js"></script>
     <script>
         Dropzone.autoDiscover = false;
@@ -91,7 +99,7 @@
             //acceptedFiles: ".jpg, .jpeg, .png, .gif, .bmp, .pdf, .doc, .docx, .txt, .zip, .rar",
             contentType: "multipart/form-data",
             init: function () {
-                this.on("sending", function(file, xhr){
+                this.on("sending", function (file, xhr) {
                     xhr.timeout = 300000;
                 })
                 // 设置上传成功后的回调函数
@@ -101,6 +109,17 @@
                     tbody.insertAdjacentHTML('afterbegin', response);
                 });
             }
+        });
+
+        document.querySelectorAll('.copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                var content = this.parentNode.parentNode.querySelector('.msg').textContent.trim();
+                navigator.clipboard.writeText(content).then(function () {
+                    console.log('复制成功');
+                }, function (err) {
+                    console.log('复制失败', err);
+                });
+            });
         });
 
         // 固定上传文件框在屏幕最下方

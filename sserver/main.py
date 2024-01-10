@@ -161,8 +161,8 @@ def main():
     loader = AppLoader(factory=partial(create_app, args.prefix))
     app = loader.load()
     ssl = {
-        "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
-        "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
+        "cert": os.environ.get("CERT_PATH", ""),
+        "key": os.environ.get("KEY_PATH", ""),
     }
     use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
     host = os.environ.get("HOST", "0.0.0.0") or args.host

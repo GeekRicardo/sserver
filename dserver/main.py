@@ -124,7 +124,7 @@ def create_app(prefix: str = "/", upload_dir: str = "./"):
 def parseargs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", "-H", type=str, default="0.0.0.0", help="host")
-    parser.add_argument("--port", "-p", type=int, default=3001, help="port")
+    parser.add_argument("--port", "-p", type=int, default=8000, help="port")
     parser.add_argument("--prefix", "-a", type=str, default="/", help="prefix")
     parser.add_argument("--path", "-P", type=str, default="./", help="dir path")
     return parser.parse_args()
@@ -135,8 +135,8 @@ def main():
     loader = AppLoader(factory=partial(create_app, args.prefix, args.path))
     app = loader.load()
     ssl = {
-        "cert": os.environ.get("CERT_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/cert.crt"),
-        "key": os.environ.get("KEY_PATH", "/Users/ricardo/code/ricardo/ssl/sshug.cn/privkey.key"),
+        "cert": os.environ.get("CERT_PATH", ""),
+        "key": os.environ.get("KEY_PATH", ""),
     }
     use_ssl = os.environ.get("USE_SSL", "False").lower() == "true"
     host = os.environ.get("HOST", "0.0.0.0") or args.host
