@@ -4,11 +4,6 @@ from setuptools import setup, find_packages
 with open("requirements.txt") as f:
     requirements = f.read().splitlines()
 
-def read_version():
-    config = configparser.ConfigParser()
-    config.read('.bumpversion.cfg')
-    return config['bumpversion']['current_version']
-
 setup(
     name="dserver",
     version="0.1.10",
