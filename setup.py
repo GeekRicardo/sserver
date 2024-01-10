@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="dserver",
-    version="0.1.8",
+    version="0.1.9",
     packages=find_packages(),
     author="Geek Ricardo",
     author_email="GeekRicardozzZ@gmail.com",
