@@ -159,7 +159,11 @@ def main():
     host = os.environ.get("HOST", "0.0.0.0") or args.host
     port = int(os.environ.get("PORT", "0")) or args.port
     app.prepare(
-        host=host, port=port, dev=os.environ.get("DEBUG", "False").lower() == "true", ssl=ssl if use_ssl else None
+        host=host,
+        port=port,
+        dev=os.environ.get("DEBUG", "False").lower() == "true",
+        ssl=ssl if use_ssl else None,
+        access_log=True,
     )
     Sanic.serve(primary=app, app_loader=loader)
 
