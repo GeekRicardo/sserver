@@ -21,7 +21,7 @@ version:
       - changelog.txt
       - branch_prefix.txt
       - branch_suffix.txt
-    expire_in: 1 week
+    expire_in: 1 month
   before_script:
     # 按-分割分支名
     - IFS='-' read -r -a array <<< "$CI_COMMIT_BRANCH"
@@ -33,7 +33,7 @@ version:
   script:
     # 安装依赖
     # - apt-get update&&apt-get install git-lfs
-    - pip install commitizen
+    - pip install commitizen -i https://mirrors.cloud.tencent.com/pypi/simple/
     # - pip install TrCommitizen==0.1.0 -i https://nexus-h.tr.com/repository/pypi/simple #安装自定义的commitizen 解决changelog重复问题
     # 配置git用户
     - git config --global user.name "${GITLAB_USER_NAME}"
