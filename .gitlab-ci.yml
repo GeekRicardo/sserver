@@ -32,8 +32,8 @@ version:
     - if [ ${array[1]} = "complie" ]; then TAG_PREFIX="compile"; BRANCH_SUFFIX="compile"; fi
   script:
     # 安装依赖
-    - apt-get update&&apt-get install git-lfs
-    - pip install commitizen==2.20.4
+    # - apt-get update&&apt-get install git-lfs
+    - pip install commitizen
     # - pip install TrCommitizen==0.1.0 -i https://nexus-h.tr.com/repository/pypi/simple #安装自定义的commitizen 解决changelog重复问题
     # 配置git用户
     - git config --global user.name "${GITLAB_USER_NAME}"
@@ -110,7 +110,7 @@ build_and_push_wheel:
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
     - if: '$CI_COMMIT_BRANCH =~ /^test.*/'
-  image: python:3.6
+  image: python:3.8
   artifacts:
     paths:
       - version.txt
@@ -139,7 +139,7 @@ handle_error:
   stage: handle_error
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
-  image: python:3.6
+  image: python:3.8
   artifacts:
     paths:
       - version.txt
