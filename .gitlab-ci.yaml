@@ -1,0 +1,157 @@
+stages:
+  - version
+  - test
+  - build
+  - release
+  - handle_error
+
+variables:
+  GIT_STRATEGY: clone
+
+version:
+  stage: version
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
+    - if: '$CI_COMMIT_BRANCH =~ /^test.*/'
+  image: python:3.8
+  artifacts:
+    paths:
+      - version.txt
+      - wheel_version.txt
+      - changelog.txt
+      - branch_prefix.txt
+      - branch_suffix.txt
+    expire_in: 1 week
+  before_script:
+    # 按-分割分支名
+    - IFS='-' read -r -a array <<< "$CI_COMMIT_BRANCH"
+    # 获取分支名前缀判断
+    - if [ ${array[0]} = "release" ]; then BRANCH_PREFIX="release"; else BRANCH_PREFIX="test"; fi
+    # 根据分支名后缀判断tag格式，无后缀tag格式为v
+    - if [ ${#array[@]} = 1 ]; then TAG_PREFIX="v";  BRANCH_SUFFIX="none"; fi
+    - if [ ${array[1]} = "complie" ]; then TAG_PREFIX="compile"; BRANCH_SUFFIX="compile"; fi
+  script:
+    # 安装依赖
+    - apt-get update&&apt-get install git-lfs
+    - pip install commitizen==2.20.4
+    # - pip install TrCommitizen==0.1.0 -i https://nexus-h.tr.com/repository/pypi/simple #安装自定义的commitizen 解决changelog重复问题
+    # 配置git用户
+    - git config --global user.name "${GITLAB_USER_NAME}"
+    - git config --global user.email "${GITLAB_USER_EMAIL}"
+    # 关联远程仓库
+    - REMOTE_URL=http://root:$ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git
+    - git remote add origin2 ${REMOTE_URL}
+    - git fetch --all --tags
+    # 取最新tag
+    - LATEST_TAG=`git tag --list |grep "^${TAG_PREFIX}"|tail -n 1||true`
+    - echo $LATEST_TAG
+    - git checkout -b ${CI_COMMIT_BRANCH} origin2/${CI_COMMIT_BRANCH}
+    # 不存在历史tag时初始化cz
+    - if [ -z ${LATEST_TAG} ]; then yes ""|cz init||true; git add . && git commit -m "init"||true;  fi
+    # 将存在最新tag则将其代码merge进来
+    - if [ ! -z ${LATEST_TAG} ];then git merge ${LATEST_TAG} -m "merge tag"; fi
+    # 自动生成版本号和changelog，自动打tag
+    - >
+      if [ ${BRANCH_PREFIX} = "release" ]; then
+          cz -n cz_tr bump --changelog --yes --tag-format "${TAG_PREFIX}\$version" --bump-message 'bump:$current_version → $new_version [skip-ci]' --changelog-to-stdout>./changelog.txt;
+          VERSION=${TAG_PREFIX}`cz version -p`;WHEEL_VERSION=${VERSION};
+      fi
+    # test分支的tag在release的最新tag基础上打
+    - >
+      if [ ${BRANCH_PREFIX} = "test" ]; then
+          cz -n cz_tr bump --changelog --yes --tag-format "${TAG_PREFIX}\$version" --bump-message 'bump:$current_version → $new_version [skip-ci]' --changelog-to-stdout>./changelog.txt||true;
+          RELEASE_VERSION=${TAG_PREFIX}`cz version -p`;
+          VERSION=test`cz version -p`.${CI_PIPELINE_IID};
+          WHEEL_VERSION=`cz version -p`.${CI_PIPELINE_IID};
+          git tag ${VERSION} ${RELEASE_VERSION};
+          git tag -d ${RELEASE_VERSION};
+      fi
+    # 推送tag(ci自带的origin不允许push)
+    - git push origin2 --tags
+    - echo $VERSION>./version.txt
+    - echo $WHEEL_VERSION>./wheel_version.txt
+    - echo $BRANCH_PREFIX>./branch_prefix.txt
+    - echo $BRANCH_SUFFIX>./branch_suffix.txt
+
+release:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
+  allow_failure: true
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  artifacts:
+    paths:
+      - version.txt
+      - changelog.txt
+      - image.txt
+    expire_in: 1 week
+  variables:
+    ECHO_URL: http://echo.tr-prod-group-1.cloud.tr.com/api/echo
+  script:
+    #读版本号
+    - version=`cat version.txt`
+    - echo $version
+    #读changelog  替换标题
+    - first_line="## CHANGELOG"
+    - sed -i  "1s/.*/$first_line/"  changelog.txt
+    - changelog=`cat changelog.txt`
+    #读打包结果
+    - image_name=`cat image.txt`
+    - image_url=${ECHO_URL}?message=${image_name}
+    - ymd=`date +%Y-%m-%d`
+    #发布release
+    - >
+      release-cli create --name "Release $version ($ymd)" --tag-name $version --description "$changelog"
+      --assets-link "{\"name\":\"${image_name}\",\"url\":\"${image_url}\",\"link_type\":\"image\"}"
+
+build_and_push_wheel:
+  stage: build
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
+    - if: '$CI_COMMIT_BRANCH =~ /^test.*/'
+  image: python:3.6
+  artifacts:
+    paths:
+      - version.txt
+      - wheel_version.txt
+    expire_in: 1 week
+  variables:
+    PYPI_REPO: https://nexus-h.tr.com/repository/pypi-hosted/
+    PYPI_INDEX: https://mirrors.cloud.tencent.com/pypi/simple/
+    BUILD_FILE_PATH: "setup.py"
+  before_script:
+    - PACKAGE_VERSION=`cat wheel_version.txt`
+  script:
+    # 安装依赖
+    - pip3 install --no-cache-dir cryptography setuptools twine wheel -i ${PYPI_INDEX}
+    # 清除缓存
+    - rm -rf dist build||true
+    # 打包
+    - PACKAGE_VERSION=$PACKAGE_VERSION python3 ${BUILD_FILE_PATH} sdist bdist_wheel
+    # 上传
+    # - twine upload --repository-url ${PYPI_REPO} dist/*
+    - ls dist |grep ".whl" > result.txt
+    - cat result.txt
+
+
+handle_error:
+  stage: handle_error
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release.*/'
+  image: python:3.6
+  artifacts:
+    paths:
+      - version.txt
+      - changelog.txt
+      - image.txt
+  script:
+    # 如果image.txt存在，即build成功，立即退出，无需删除tag
+    - if [ -f "image.txt" ];then exit 0;fi
+    # 如果image.txt不存在，则build失败，需要删除tag
+    - version=`cat version.txt`
+    - echo $version
+    - REMOTE_URL=http://root:$ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git
+    - git remote add origin2 ${REMOTE_URL}
+    - git push origin2 :refs/tags/${version}
+    - exit 1
