@@ -39,7 +39,7 @@ version:
     - git config --global user.name "${GITLAB_USER_NAME}"
     - git config --global user.email "${GITLAB_USER_EMAIL}"
     # 关联远程仓库
-    - REMOTE_URL=http://root:$ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git
+    - REMOTE_URL=https://root:$ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git
     - git remote add origin2 ${REMOTE_URL}
     - git fetch --all --tags
     # 取最新tag
