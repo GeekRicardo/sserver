@@ -1,12 +1,14 @@
-import configparser
+import os
 from setuptools import setup, find_packages
 
 with open("requirements.txt") as f:
     requirements = f.read().splitlines()
 
+version = os.environ["PACKAGE_VERSION"]
+
 setup(
     name="dserver",
-    version="0.1.11",
+    version=version,
     packages=find_packages(),
     author="Geek Ricardo",
     author_email="GeekRicardozzZ@gmail.com",

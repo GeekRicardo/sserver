@@ -115,9 +115,9 @@ build_and_push_wheel:
     paths:
       - version.txt
       - wheel_version.txt
-    expire_in: 1 week
+    expire_in: 1 month
   variables:
-    PYPI_REPO: https://nexus-h.tr.com/repository/pypi-hosted/
+    PYPI_REPO: https://pypi.org/
     PYPI_INDEX: https://mirrors.cloud.tencent.com/pypi/simple/
     BUILD_FILE_PATH: "setup.py"
   before_script:
