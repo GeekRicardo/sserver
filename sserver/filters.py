@@ -11,7 +11,7 @@
 # import lib here
 
 
-from fastapi import Request
+from sanic.request import Request
 
 
 def datetime_format(value, format_="%Y-%m-%d %H:%M:%S"):

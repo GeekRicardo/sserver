@@ -4,7 +4,7 @@ import os
 import argparse
 import shutil
 from sanic import Blueprint, Sanic, Request, response, app
-from sanic.response import json, html, file as resp_file
+from sanic.response import json, html, file as resp_file, text
 from sanic.worker.loader import AppLoader
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -65,11 +65,15 @@ def create_bp(prefix: str = "/"):
 
             await file_record.save()
 
-            return html(
+            ua = request.headers.get("User-Agent", "").lower()
+            if "mozilla" in ua:
+                return html(
                 f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
                 f"</a></td><td>{datetime_format(file_record.created_at)}</td><td>{format_size(len(file.body))}</td>"
                 f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
             )
+            else:
+                return text(file_record.id)
 
     @bp.route("/msg", methods=["GET", "POST"])
     async def msg(request: Request):
