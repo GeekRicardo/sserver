@@ -3,13 +3,14 @@ from glob import glob
 import os
 import argparse
 import shutil
+import aiofiles
+
 from sanic import Blueprint, Sanic, Request, response, app
 from sanic.response import json, html, file as resp_file, text
 from sanic.worker.loader import AppLoader
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sanic_routing import Route
-import ulid
 
 from sserver.model import get_db, MsgRecord, FileRecord
 from sserver.filters import datetime_format, format_size, register_filters
@@ -58,10 +59,16 @@ def create_bp(prefix: str = "/"):
             return html(jinja_env.get_template("upload.html").render())
 
         else:
-            file = request.files.get("uploaded_file")
-            file_record = FileRecord(file.name)
-            with open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as f:
-                f.write(file.body)
+            # file = request.files.get("uploaded_file")
+            content_length = request.headers.get('Content-Length')
+            filename = request.form.get("filename")
+            file_record = FileRecord(filename)
+            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as f:
+                while True:
+                    data = await request.stream.read()
+                    if data is None:
+                        break
+                    f.write(data)
 
             await file_record.save()
 
@@ -69,7 +76,7 @@ def create_bp(prefix: str = "/"):
             if "mozilla" in ua:
                 return html(
                 f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
-                f"</a></td><td>{datetime_format(file_record.created_at)}</td><td>{format_size(len(file.body))}</td>"
+                f"</a></td><td>{datetime_format(file_record.created_at)}</td><td>{format_size(int(content_length) if content_length else 0)}</td>"
                 f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
             )
             else:
