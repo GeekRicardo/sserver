@@ -116,31 +116,38 @@ def create_bp(prefix: str = "/"):
 
     @bp.route("/<fid:path>")
     async def download(request: Request, fid: str):
-        file = await FileRecord.get(fid)
-        if not file:
-            return json({"code": -1, "msg": "file not found.", "data": None})
-        mimetype = request.args.get("mimetype")
+        file = None
+        file_path = ""
+        if request.args.get("static") == "1":
+            file_path=os.path.join(request.app.config.UPLOAD_DIR, fid)
+            file = FileRecord(fid)
+        else:
+            file = await FileRecord.get(fid)
+            if not file:
+                return json({"code": -1, "msg": "file not found.", "data": None})
+            file_path = os.path.join(request.app.config.UPLOAD_DIR, file.id)
 
-        file_path = os.path.join(request.app.config.UPLOAD_DIR, file.id)
         if os.path.exists(file_path):
+            mimetype = request.args.get("mimetype")
             return await resp_file(
                 file_path,
                 filename=file.filename,
                 mime_type=mimetype or get_media_type(file.filename.rsplit(".", 1)[-1]),
             )
-        return json({"code": -2, "msg": "file not exists", "data": None})
+        return json({"code": -2, "msg": "file not exists", "data": None}), 400
 
     @bp.get("/make")
     async def make_record(request: Request):
-        newf = []
+        newfiles = []
         for f in glob(request.app.config.UPLOAD_DIR + "/*"):
             if not os.path.isfile(f):
                 continue
             basename = os.path.basename(f)
             if not await FileRecord.get(basename) and not await FileRecord.get_by_filename(basename):
-                newf.append(await FileRecord(basename).save())
-                os.rename(f, os.path.join(os.path.dirname(f), newf[-1].id))
-        return json({"code": 0, "msg": "success", "data": [it.filename for it in newf]})
+                newfiles.append((newf := FileRecord(basename)))
+                await newf.save()
+                os.rename(f, os.path.join(os.path.dirname(f), newf.id))
+        return json({"code": 0, "msg": "success", "data": [it.filename for it in newfiles]})
 
     @bp.get("/alias")
     async def alias(request: Request):
