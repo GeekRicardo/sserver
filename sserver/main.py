@@ -3,6 +3,7 @@ from glob import glob
 import os
 import argparse
 import shutil
+from urllib.parse import unquote
 import aiofiles
 
 from sanic import Blueprint, Sanic, Request, response, app
@@ -119,7 +120,8 @@ def create_bp(prefix: str = "/"):
         file = None
         file_path = ""
         if request.args.get("static") == "1":
-            file_path=os.path.join(request.app.config.UPLOAD_DIR, fid)
+            fid = unquote(fid, encoding="utf-8")
+            file_path = os.path.join(request.app.config.UPLOAD_DIR, fid)
             file = FileRecord(fid)
         else:
             file = await FileRecord.get(fid)
@@ -129,11 +131,10 @@ def create_bp(prefix: str = "/"):
 
         if os.path.exists(file_path):
             mimetype = request.args.get("mimetype")
-            return await resp_file(
-                file_path,
-                filename=file.filename,
-                mime_type=mimetype or get_media_type(file.filename.rsplit(".", 1)[-1]),
-            )
+            m, download = get_media_type(file.filename.rsplit(".", 1)[-1])
+            mimetype = mimetype or m
+
+            return await resp_file(file_path, filename=file.filename if download else None, mime_type=mimetype)
         return json({"code": -2, "msg": "file not exists", "data": None}), 400
 
     @bp.get("/make")

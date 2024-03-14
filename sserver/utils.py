@@ -1,35 +1,35 @@
 def get_media_type(file_extension: str, direct_download: str = "") -> str:
     # pylint: disable=too-many-return-statements
     if direct_download == "1":
-        return "application/octet-stream"
+        return "application/octet-stream", True
     if file_extension in ["jpg", "jpeg"]:
-        return "image/jpeg"
+        return "image/jpeg", False
     if "png" == file_extension:
-        return "image/png"
+        return "image/png", False
     if "txt" == file_extension:
-        return "text/plain"
+        return "text/plain", False
     if "pdf" == file_extension:
-        return "application/pdf"
+        return "application/pdf", False
     if "json" == file_extension:
-        return "application/json"
+        return "application/json", False
     if "gif" == file_extension:
-        return "image/gif"
+        return "image/gif", False
     if file_extension in ["js", "mjs"]:
-        return "application/javascript"
+        return "application/javascript", False
     if file_extension == "html":
-        return "text/html"
+        return "text/html", False
     if file_extension == "css":
-        return "text/css"
+        return "text/css", False
     if "xml" == file_extension:
-        return "application/xml"
+        return "application/xml", False
     if file_extension == "mp4":
-        return "video/mp4"
+        return "video/mp4", False
     if "mp3" == file_extension:
-        return "audio/mpeg"
+        return "audio/mpeg", False
     if "wav" == file_extension:
-        return "audio/wave"
+        return "audio/wave", False
     if "ogg" == file_extension:
-        return "application/ogg"
+        return "application/ogg", False
     if file_extension in ["ico", "cur"]:
-        return "image/x-icon"
-    return "application/octet-stream"
+        return "image/x-icon", False
+    return "application/octet-stream", True
