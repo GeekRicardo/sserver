@@ -5,16 +5,46 @@
     <meta charset="UTF-8">
     <title>sServer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css">
-    <!-- <link rel="stylesheet" href="/01HKRR94VNQMZWSKD2ESGXQK55" type="text/css"> -->
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/dropzone/5.9.2/dropzone.min.css">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css">
     <link rel="shortcut icon" href="/favicon.ico">
+    <style>
+        body {
+            width: 100%;
+            height: 100vh;
+        }
+        #files-dropzone {
+            background-color: #e6e6e6;
+            border-radius: 15px;
+            padding: 20px;
+            margin-left: 5%;
+            width: 90%;
+            height: 19vh;
+            overflow-y: auto;
+        }
+        .uploaded_file {
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            background-color: #f2f2f2;
+            padding: 10px;
+            margin: 10px;
+            display: inline-block;
+        }
+        progress {
+            width: 100%;
+        }
+        .list {
+            border: 0.5px solid;
+            border-color: #e6e6e6;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+    </style>
 </head>
 
 <body>
     <div class="container-fluid">
         <!-- 文件列表 -->
-        <div style="height: 50vh; overflow-y: auto;">
+        <div class="list" style="height: 50vh; overflow-y: auto;">
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -42,18 +72,8 @@
             </table>
         </div>
 
-        <!-- 文件上传表单 -->
-        <form action="{{ url_for('app.upload') }}" class="dropzone" id="file-upload-form"></form>
-        <div class="form-group">
-            <form action="{{ url_for('app.msg') }}" method="post">
-                <label for="msg-input">Message:</label>
-                <textarea class="form-control" id="msg-input" name="content" rows="1"></textarea>
-                <button type="submit" class="btn btn-primary">Send</button>
-            </form>
 
-        </div>
-
-        <div style="height: 20vh; overflow-y: auto;">
+        <div class="list" style="height: 20vh; overflow-y: auto;">
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -81,36 +101,139 @@
             </table>
         </div>
 
+        <div class="form-group">
+            <form action="{{ url_for('app.msg') }}" method="post">
+                <label for="msg-input">Message:</label>
+                <textarea class="form-control" id="msg-input" name="content" rows="1"></textarea>
+                <button type="submit" class="btn btn-primary">Send</button>
+            </form>
 
+        </div>
 
 
     </div>
+    <div class="dropzone">
+        <div id="files-dropzone">
+            <p id="tips">点击或拖拽上传</p>
+            <input type="file" name="file" id="file" multiple hidden action="{{ url_for('app.upload') }}">
+            <div id="uploads"></div>
+        </div>
+    </div>
 
-    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/dropzone/5.9.2/min/dropzone.min.js"></script>
     <script>
-        Dropzone.autoDiscover = false;
-        var myDropzone = new Dropzone("#file-upload-form", {
-            paramName: "file",
-            maxFilesize: 0, // MB
-            addRemoveLinks: true,
-            dictDefaultMessage: "Drop files here or click to upload.",
-            dictRemoveFile: "Remove",
-            //acceptedFiles: ".jpg, .jpeg, .png, .gif, .bmp, .pdf, .doc, .docx, .txt, .zip, .rar",
-            contentType: "multipart/form-data",
-            init: function () {
-                this.on("sending", function (file, xhr, formData) {
-                    xhr.timeout = 1800000;
-                    formData.append("filename", file.name)
-                })
-                // 设置上传成功后的回调函数
-                this.on("success", function (file, response) {
-                    // 在文件列表中添加新上传的文件
-                    var tbody = document.getElementById("files");
-                    tbody.insertAdjacentHTML('afterbegin', response);
-                });
-            }
+
+        function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        let dropArea = document.getElementById('files-dropzone');
+        let fileElem = document.getElementById('file');
+        const action = fileElem.getAttribute("action");
+
+        // 阻止 dragover 和 drop 事件的默认行为以启用拖拽上传
+        ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
         });
+
+        // 点击 div 选择文件
+        dropArea.addEventListener('click', () => { 
+            let tempInput = document.createElement('input');
+            tempInput.setAttribute('type', 'file');
+            tempInput.setAttribute('multiple', true);
+            tempInput.style.display = 'none';
+
+            tempInput.addEventListener('change', function(event) {
+                handle(event.target.files);
+                document.body.removeChild(tempInput);
+            });
+            document.body.appendChild(tempInput);
+            tempInput.click(); 
+        }, false);
+
+        // 处理拖拽相关事件
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            handle(files);
+        }
+
+        function handleFiles(event) {
+            handle(event.target.files);
+        }
+        
+        function handle(files) {
+            var tips = document.getElementById("tips");
+            if (tips != undefined) {
+                tips.remove();
+            }
+            Array.from(files).forEach(uploadFile);
+        }
+
+        async function uploadFile(file) {
+            const chunkSize = 2 * 1024 * 1024; // 每块2MB
+            const chunksCount = Math.ceil(file.size / chunkSize);
+            const _id = uuidv4();
+
+            createProgressElement(_id, file.name);
+
+            for (let i = 0; i < chunksCount; i++) {
+                let start = i * chunkSize;
+                let end = Math.min(file.size, (i+1) * chunkSize);
+
+                let blob = file.slice(start, end);  // 文件切块
+
+                let formData = new FormData();
+                formData.append('file', blob, _id+"-"+i); // 添加文件数据
+
+                const uploadResponse = await fetch(action, {
+                    method: 'POST', body: formData
+                });
+                if (uploadResponse.ok) {
+                    let progressElement = document.getElementById(_id);
+                    progressElement.value = (i+1) * 100 / chunksCount;
+                    if (progressElement.value == 100) {
+                        progressElement.style.color = "green";
+                    }
+                }else{
+                    progressElement.style.color = "red";
+                    break;
+                }
+            }
+
+            const uploadResponse = await fetch(action, {
+                method: 'PATCH',
+                body: JSON.stringify({ filename: file.name, _id: _id, chunks: chunksCount }),
+                headers: {'Content-Type': 'application/json'},
+            });
+            const finishResult = await uploadResponse.text();
+            if (uploadResponse.ok) {
+                var tbody = document.getElementById("files");
+                tbody.insertAdjacentHTML('afterbegin', finishResult);
+            }
+        }
+
+        function createProgressElement(_id, filename) {
+            let uploadElem = document.createElement('div');
+            uploadElem.className = "uploaded_file"
+
+            uploadElem.innerHTML = `
+                <progress id="${_id}" max="100" value="0"></progress>
+                <p>${filename}</p>
+            `;
+
+            document.getElementById('uploads').appendChild(uploadElem);
+        }
+
 
         document.querySelectorAll('.copy-btn').forEach(function (btn) {
             btn.addEventListener('click', function (ev) {
@@ -123,17 +246,6 @@
             });
         });
 
-        // 固定上传文件框在屏幕最下方
-        $(document).ready(function () {
-            $(window).on('scroll', function () {
-                var scrollBottom = $(document).height() - $(window).scrollTop() - $(window).height();
-                if (scrollBottom < 150) {
-                    $('.dropzone').removeClass('fixed-bottom');
-                } else {
-                    $('.dropzone').addClass('fixed-bottom');
-                }
-            });
-        });
     </script>
 </body>
 

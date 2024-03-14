@@ -26,13 +26,7 @@ class FileRecord:
 
     @classmethod
     async def get_list(cls, page: int = 1, size: int = 100):
-        ret = (
-            cls.get_col()
-            .find({}, {"_id": 0})
-            .sort({"created_at": -1})
-            .skip((page - 1) * size)
-            .limit(size)
-        )
+        ret = cls.get_col().find({}, {"_id": 0}).sort({"created_at": -1}).skip((page - 1) * size).limit(size)
         return [cls(**r) async for r in ret]
 
     @classmethod
@@ -48,10 +42,15 @@ class FileRecord:
 
     async def save(self):
         await self.get_col().insert_one(self.__dict__)
-        return self
+        self.__dict__.pop("_id", None)
 
     async def delete(self):
         await self.get_col().delete_one({"id": self.id})
+
+    def json(self):
+        data = self.__dict__
+        data["created_at"] = data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        return data
 
 
 @dataclass
@@ -74,13 +73,7 @@ class MsgRecord:
 
     @classmethod
     async def get_list(cls, page: int = 1, size: int = 30):
-        ret = (
-            cls.get_col()
-            .find({}, {"_id": 0})
-            .sort({"created_at": -1})
-            .skip((page - 1) * size)
-            .limit(size)
-        )
+        ret = cls.get_col().find({}, {"_id": 0}).sort({"created_at": -1}).skip((page - 1) * size).limit(size)
         return [cls(**r) async for r in ret]
 
     async def save(self):
@@ -88,6 +81,11 @@ class MsgRecord:
 
     async def delete(self):
         await self.get_col().delete_one({"id": self.id})
+
+    def json(self):
+        data = self.__dict__
+        data["created_at"] = data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        return data
 
 
 db = None
@@ -98,9 +96,7 @@ async def get_db():
     if db:
         return db
 
-    client = AsyncIOMotorClient(
-        os.environ.get("MONGOURI", "mongodb://localhost:27017/")
-    )
+    client = AsyncIOMotorClient(os.environ.get("MONGOURI", "mongodb://localhost:27017/"))
     db = client["sserver"]
     await create_indexes(db)
     return db

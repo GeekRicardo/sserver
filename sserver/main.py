@@ -10,7 +10,6 @@ from sanic.response import json, html, file as resp_file, text
 from sanic.worker.loader import AppLoader
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from sanic_routing import Route
 
 from sserver.model import get_db, MsgRecord, FileRecord
 from sserver.filters import datetime_format, format_size, register_filters
@@ -53,32 +52,42 @@ def create_bp(prefix: str = "/"):
             )
         )
 
-    @bp.route("/upload", methods=["POST", "GET"])
+    @bp.route("/upload", methods=["POST", "GET", "PATCH"])
     async def upload(request: Request):
         if request.method == "GET":
             return html(jinja_env.get_template("upload.html").render())
 
-        else:
-            # file = request.files.get("uploaded_file")
-            content_length = request.headers.get('Content-Length')
-            filename = request.form.get("filename")
-            file_record = FileRecord(filename)
-            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as f:
-                while True:
-                    data = await request.stream.read()
-                    if data is None:
-                        break
-                    f.write(data)
+        elif request.method == "POST":
+            chunk = request.files.get("file")
+            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, chunk.name), "wb") as f:
+                await f.write(chunk.body)
+            return json({"code": 0, "msg": "success"})
 
+        elif request.method == "PATCH":
+            filename = request.json.get("filename")
+            _id = request.json.get("_id")
+            chunks = request.json.get("chunks")
+
+            files = glob(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-*"))
+            if len(files) != chunks:
+                return json({"error": "chunks and files don't match"}), 400
+
+            file_record = FileRecord(filename)
+            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as wf:
+                for i in range(chunks):
+                    async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"), "rb") as rf:
+                        await wf.write(await rf.read())
+                    os.remove(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"))
             await file_record.save()
 
             ua = request.headers.get("User-Agent", "").lower()
             if "mozilla" in ua:
                 return html(
-                f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
-                f"</a></td><td>{datetime_format(file_record.created_at)}</td><td>{format_size(int(content_length) if content_length else 0)}</td>"
-                f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
-            )
+                    f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
+                    f"</a></td><td>{datetime_format(file_record.created_at)}</td>"
+                    f"<td>{format_size(os.path.getsize(os.path.join(request.app.config.UPLOAD_DIR, file_record.id)))}</td>"
+                    f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
+                )
             else:
                 return text(file_record.id)
 
@@ -110,13 +119,14 @@ def create_bp(prefix: str = "/"):
         file = await FileRecord.get(fid)
         if not file:
             return json({"code": -1, "msg": "file not found.", "data": None})
+        mimetype = request.args.get("mimetype")
 
         file_path = os.path.join(request.app.config.UPLOAD_DIR, file.id)
         if os.path.exists(file_path):
             return await resp_file(
                 file_path,
                 filename=file.filename,
-                mime_type=get_media_type(file.filename.rsplit(".", 1)[-1]),
+                mime_type=mimetype or get_media_type(file.filename.rsplit(".", 1)[-1]),
             )
         return json({"code": -2, "msg": "file not exists", "data": None})
 
@@ -131,6 +141,28 @@ def create_bp(prefix: str = "/"):
                 newf.append(await FileRecord(basename).save())
                 os.rename(f, os.path.join(os.path.dirname(f), newf[-1].id))
         return json({"code": 0, "msg": "success", "data": [it.filename for it in newf]})
+
+    @bp.get("/alias")
+    async def alias(request: Request):
+        """将一个文件的 id 从 ulid 改成指定的 alias
+
+        Args:
+            id (str): 原始 ulid
+            alias (str):  指定 alias
+            protected (_bool_, optional): 是否保护不允许删除，默认为 False
+        """
+        id = request.args.get("id")
+        alias = request.args.get("alias")
+        protected = bool(int(request.args.get("protect", "0")))
+        if not (file := await FileRecord.get(id)):
+            return json({"code": -1, "msg": "file not exists"})
+        if await FileRecord.get(alias):
+            return json({"code": -2, "msg": "alias already exists"})
+
+        await file.delete()
+        await (alias_file := FileRecord(file.filename, alias, protected)).save()
+        os.rename(os.path.join(request.app.config.UPLOAD_DIR, id), os.path.join(request.app.config.UPLOAD_DIR, alias))
+        return json(alias_file.json())
 
     return bp
 
