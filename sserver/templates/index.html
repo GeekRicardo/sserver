@@ -12,6 +12,7 @@
             width: 100%;
             height: 100vh;
         }
+
         #files-dropzone {
             background-color: #e6e6e6;
             border-radius: 15px;
@@ -21,6 +22,16 @@
             height: 19vh;
             overflow-y: auto;
         }
+
+        #uploads {
+            display: inline-block;
+        }
+
+        div::-webkit-scrollbar {
+            width: 0;
+        }
+
+
         .uploaded_file {
             width: 100px;
             height: 100px;
@@ -29,14 +40,29 @@
             padding: 10px;
             margin: 10px;
             display: inline-block;
+            overflow: hidden;
+            overflow-y: auto;
         }
-        progress {
-            width: 100%;
-        }
+
         .list {
             border: 0.5px solid;
             border-color: #e6e6e6;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress_bar {
+            width: 100%;
+            border-radius: 3px;
+            border: 1px solid;
+            border-color: #666666;
+            background-color: #666666;
+            height: 10px;
+        }
+
+        .progress {
+            height: 100%;
+            width: 0;
+            background-color: #33ccff;
         }
     </style>
 </head>
@@ -123,7 +149,7 @@
     <script>
 
         function uuidv4() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
@@ -139,24 +165,24 @@
         });
 
         // 点击 div 选择文件
-        dropArea.addEventListener('click', () => { 
+        dropArea.addEventListener('click', () => {
             let tempInput = document.createElement('input');
             tempInput.setAttribute('type', 'file');
             tempInput.setAttribute('multiple', true);
             tempInput.style.display = 'none';
 
-            tempInput.addEventListener('change', function(event) {
+            tempInput.addEventListener('change', function (event) {
                 handle(event.target.files);
                 document.body.removeChild(tempInput);
             });
             document.body.appendChild(tempInput);
-            tempInput.click(); 
+            tempInput.click();
         }, false);
 
         // 处理拖拽相关事件
         dropArea.addEventListener('drop', handleDrop, false);
 
-        function preventDefaults (e) {
+        function preventDefaults(e) {
             e.preventDefault();
             e.stopPropagation();
         }
@@ -170,7 +196,7 @@
         function handleFiles(event) {
             handle(event.target.files);
         }
-        
+
         function handle(files) {
             var tips = document.getElementById("tips");
             if (tips != undefined) {
@@ -180,45 +206,47 @@
         }
 
         async function uploadFile(file) {
-            const chunkSize = 2 * 1024 * 1024; // 每块2MB
+            const chunkSize = 50 * 1024 * 1024;
             const chunksCount = Math.ceil(file.size / chunkSize);
             const _id = uuidv4();
 
-            createProgressElement(_id, file.name);
+            let progressElement = createProgressElement(_id, file.name);
 
             for (let i = 0; i < chunksCount; i++) {
                 let start = i * chunkSize;
-                let end = Math.min(file.size, (i+1) * chunkSize);
+                let end = Math.min(file.size, (i + 1) * chunkSize);
 
                 let blob = file.slice(start, end);  // 文件切块
 
                 let formData = new FormData();
-                formData.append('file', blob, _id+"-"+i); // 添加文件数据
+                formData.append('file', blob, _id + "-" + i); // 添加文件数据
 
                 const uploadResponse = await fetch(action, {
                     method: 'POST', body: formData
                 });
                 if (uploadResponse.ok) {
-                    let progressElement = document.getElementById(_id);
-                    progressElement.value = (i+1) * 100 / chunksCount;
-                    if (progressElement.value == 100) {
-                        progressElement.style.color = "green";
-                    }
-                }else{
-                    progressElement.style.color = "red";
-                    break;
+                    progressElement.style.width = ((i + 1) * 100 / chunksCount) + "%";
+                } else {
+                    progressElement.style.backgroundColor = "#ff9999";
+                    progressElement.parentNode.style.borderColor = "#ff0000";
+                    return;
                 }
             }
 
             const uploadResponse = await fetch(action, {
                 method: 'PATCH',
                 body: JSON.stringify({ filename: file.name, _id: _id, chunks: chunksCount }),
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
             });
             const finishResult = await uploadResponse.text();
             if (uploadResponse.ok) {
+                progressElement.style.backgroundColor = "#00ff00";
                 var tbody = document.getElementById("files");
                 tbody.insertAdjacentHTML('afterbegin', finishResult);
+            } else {
+                progressElement.style.backgroundColor = "#ff9999";
+                progressElement.parentNode.style.borderColor = "#ff0000";
+                return;
             }
         }
 
@@ -227,11 +255,12 @@
             uploadElem.className = "uploaded_file"
 
             uploadElem.innerHTML = `
-                <progress id="${_id}" max="100" value="0"></progress>
-                <p>${filename}</p>
+                <div class="progress_bar"><div id="${_id}" class="progress"></div></div>
+                <span>${filename}</span>
             `;
 
             document.getElementById('uploads').appendChild(uploadElem);
+            return document.getElementById(_id);
         }
 
 

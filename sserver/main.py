@@ -59,10 +59,16 @@ def create_bp(prefix: str = "/"):
             return html(jinja_env.get_template("upload.html").render())
 
         elif request.method == "POST":
-            chunk = request.files.get("file")
-            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, chunk.name), "wb") as f:
-                await f.write(chunk.body)
-            return json({"code": 0, "msg": "success"})
+            try:
+                chunk = request.files.get("file")
+                save_path = os.path.join(request.app.config.UPLOAD_DIR, chunk.name)
+                async with aiofiles.open(save_path, "wb") as f:
+                    await f.write(chunk.body)
+                return json({"code": 0, "msg": "success"})
+            except Exception as e:
+                if os.path.exists(save_path):
+                    os.remove(save_path)
+                return json({"code": -500, "msg": repr(e)}), 501
 
         elif request.method == "PATCH":
             filename = request.json.get("filename")
@@ -73,24 +79,29 @@ def create_bp(prefix: str = "/"):
             if len(files) != chunks:
                 return json({"error": "chunks and files don't match"}), 400
 
-            file_record = FileRecord(filename)
-            async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as wf:
-                for i in range(chunks):
-                    async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"), "rb") as rf:
-                        await wf.write(await rf.read())
-                    os.remove(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"))
-            await file_record.save()
+            try:
+                file_record = FileRecord(filename)
+                async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, file_record.id), "wb") as wf:
+                    for i in range(chunks):
+                        async with aiofiles.open(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"), "rb") as rf:
+                            await wf.write(await rf.read())
+                        os.remove(os.path.join(request.app.config.UPLOAD_DIR, f"{_id}-{i}"))
+                await file_record.save()
 
-            ua = request.headers.get("User-Agent", "").lower()
-            if "mozilla" in ua:
-                return html(
-                    f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
-                    f"</a></td><td>{datetime_format(file_record.created_at)}</td>"
-                    f"<td>{format_size(os.path.getsize(os.path.join(request.app.config.UPLOAD_DIR, file_record.id)))}</td>"
-                    f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
-                )
-            else:
-                return text(file_record.id)
+                ua = request.headers.get("User-Agent", "").lower()
+                if "mozilla" in ua:
+                    return html(
+                        f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
+                        f"</a></td><td>{datetime_format(file_record.created_at)}</td>"
+                        f"<td>{format_size(os.path.getsize(os.path.join(request.app.config.UPLOAD_DIR, file_record.id)))}</td>"
+                        f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
+                    )
+                else:
+                    return text(file_record.id)
+            except Exception as e:
+                for it in files:
+                    os.remove(it)
+                return json({"code": -501, "msg": repr(e)}), 501
 
     @bp.route("/msg", methods=["GET", "POST"])
     async def msg(request: Request):
