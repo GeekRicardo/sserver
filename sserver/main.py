@@ -94,7 +94,8 @@ def create_bp(prefix: str = "/"):
                         f"<tr><td><a href='/{file_record.id}' target='_blank'>{file_record.filename}"
                         f"</a></td><td>{datetime_format(file_record.created_at)}</td>"
                         f"<td>{format_size(os.path.getsize(os.path.join(request.app.config.UPLOAD_DIR, file_record.id)))}</td>"
-                        f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>删除</a></td></tr>"
+                        f"<td><a href='{request.app.url_for('app.delete',mode='file',id=file_record.id)}'>"
+                        f"<bottom class='btn btn-danger'>删除</bottom></a></td></tr>"
                     )
                 else:
                     return text(file_record.id)
