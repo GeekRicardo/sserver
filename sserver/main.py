@@ -7,7 +7,7 @@ from urllib.parse import unquote
 import aiofiles
 
 from sanic import Blueprint, Sanic, Request, response, app
-from sanic.response import json, html, file as resp_file, text
+from sanic.response import json, html, file as resp_file, text, file_stream
 from sanic.worker.loader import AppLoader
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -141,13 +141,20 @@ def create_bp(prefix: str = "/"):
                 return json({"code": -1, "msg": "file not found.", "data": None})
             file_path = os.path.join(request.app.config.UPLOAD_DIR, file.id)
 
-        if os.path.exists(file_path):
-            mimetype = request.args.get("mimetype")
-            m, download = get_media_type(file.filename.rsplit(".", 1)[-1])
-            mimetype = mimetype or m
+        if not os.path.exists(file_path):
+            return json({"code": -2, "msg": "file not exists", "data": None}), 400
 
-            return await resp_file(file_path, filename=file.filename if download else None, mime_type=mimetype)
-        return json({"code": -2, "msg": "file not exists", "data": None}), 400
+        mimetype = request.args.get("mimetype")
+        m, download = get_media_type(file.filename.rsplit(".", 1)[-1])
+        mimetype = mimetype or m
+
+        return await file_stream(
+            file_path,
+            chunk_size=1024*1024*4,
+            filename=file.filename if download else None,
+            mime_type=mimetype,
+            headers={"Content-Length": str(os.path.getsize(file_path))},
+        )
 
     @bp.get("/make")
     async def make_record(request: Request):
