@@ -1,5 +1,6 @@
 from functools import partial
 from glob import glob
+from itertools import chain
 import os
 import argparse
 import shutil
@@ -205,15 +206,17 @@ def create_app(prefix: str = "/"):
     async def setup(app, loop):
         await get_db()
 
+        static_files = ["favicon.ico", "*.js", "*.css"]
         if not os.path.exists(app.config.UPLOAD_DIR):
             os.makedirs(app.config.UPLOAD_DIR)
-        if not await FileRecord.get("favicon.ico"):
-            await FileRecord("favicon.ico", "favicon.ico", True).save()
-        if not os.path.exists(app.config.UPLOAD_DIR + "/favicon.ico"):
-            shutil.copy(
-                os.path.join(os.path.dirname(__file__), "upload", "favicon.ico"),
-                os.path.join(app.config.UPLOAD_DIR, "favicon.ico"),
-            )
+        src_path = os.path.join(os.path.dirname(__file__), "upload")
+        files = chain(*[glob(os.path.join(src_path, it)) for it in static_files])
+        for file in files:
+            filename = os.path.basename(file)
+            if not await FileRecord.get(filename):
+                await FileRecord(filename, filename, True).save()
+            if not (dst_file:= os.path.exists(app.config.UPLOAD_DIR + f"/{filename}")):
+                shutil.copy(file,dst_file)
 
     return app
 

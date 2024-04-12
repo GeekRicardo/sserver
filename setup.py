@@ -13,5 +13,5 @@ setup(
     author="Geek Ricardo",
     author_email="GeekRicardozzZ@gmail.com",
     install_requires=requirements,
-    package_data={"sserver": ["templates/*", "upload/favicon.ico"]},
+    package_data={"sserver": ["templates/*", "upload/favicon.ico", "upload/*.js", "upload/*.css"]},
 )
