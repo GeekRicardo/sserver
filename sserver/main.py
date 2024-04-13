@@ -151,7 +151,7 @@ def create_bp(prefix: str = "/"):
 
         return await file_stream(
             file_path,
-            chunk_size=1024*1024*4,
+            chunk_size=1024 * 1024 * 4,
             filename=file.filename if download else None,
             mime_type=mimetype,
             headers={"Content-Length": str(os.path.getsize(file_path))},
@@ -215,8 +215,8 @@ def create_app(prefix: str = "/"):
             filename = os.path.basename(file)
             if not await FileRecord.get(filename):
                 await FileRecord(filename, filename, True).save()
-            if not (dst_file:= os.path.exists(app.config.UPLOAD_DIR + f"/{filename}")):
-                shutil.copy(file,dst_file)
+            if not os.path.exists((dst_file := (app.config.UPLOAD_DIR + f"/{filename}"))):
+                shutil.copy(file, dst_file)
 
     return app
 
@@ -251,4 +251,8 @@ def main():
 
 
 if __name__ == "__main__":
+    from sanic.worker.manager import WorkerManager
+
+    WorkerManager.THRESHOLD = 60000
+
     main()
